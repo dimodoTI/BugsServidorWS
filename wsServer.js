@@ -1,7 +1,10 @@
+
+const configuracion = [{ id: "01", com: 3, dispositivo: "tarjetaChip" }]
 const http = require('http');
 const WebSocketServer = require('websocket').server;
 const net = require('net');
 const client = new net.Socket();
+let clientConectado = false;
 const url = require('url');
 const fs = require('fs');
 const path = require('path');
@@ -41,9 +44,10 @@ sPort.on('error', function (err) {
     console.log('Error: ', err.message)
 })
 sPort.on('open', function () {
-    console.log('COM1: ', 'Abierto')
+    console.log('COM3: ', 'Abierto')
 })
 sPort.on('data', function (data) {
+    connection.sendUTF("#03" + data);
     console.log('Data:', data)
 })
 let response = null
@@ -54,6 +58,7 @@ client.on('data', (data) => {
     response.end(); */
 });
 client.on('close', () => {
+    clientConectado = false;
     console.log('Closed');
     client.destroy();
     client = new net.Socket();
@@ -116,18 +121,19 @@ wsServer.on('request', function (request) {
     connection = request.accept(null, request.origin);
     connection.on('message', function (message) {
         console.log('Received Message:', message.utf8Data);
-        if (message.utf8Data == "connect") {
-            client.connect(4000, '10.1.6.61', () => {
+        if (message.utf8Data == "connect" && !clientConectado) {
+            client.connect(4000, '192.168.0.50', () => {
+                clientConectado = true;
                 console.log('Connected');
-                connection.sendUTF('Connectado al 10.1.6.61 port 4000');
+                connection.sendUTF('Connectado al 192.168.0.50 port 4000');
             })
         }
-        if (message.utf8Data == "$PL01!") {
-            client.write(message.utf8Data)
-        }
 
-        if (message.utf8Data == "hey") {
-            connection.sendUTF('WebSocket Conectado!!!');
+        if (message.utf8Data.indexOf("$send") == 0) {
+            console.log(message.utf8Data);
+            const mensaje = message.utf8Data.replace("$send:", "$")
+            console.log(mensaje);
+            client.write(mensaje)
         }
     });
     connection.on('close', function (reasonCode, description) {
