@@ -1,5 +1,15 @@
 
-const configuracion = [{ id: "01", com: 3, dispositivo: "tarjetaChip" }]
+//import { TARJETACHIP, POST, LECTORLED } from "./dispositivos.mjs"
+const TARJETACHIP = "tarjetaChip"
+const POST = "postNet"
+const LECTORLED = "lectorLed"
+
+const configuracion = [
+    { id: "1", com: 1, dispositivo: TARJETACHIP, velocidad: 9600, datos: 8, paridad: "N", parada: 1, conectado: false },
+    { id: "6", com: 6, dispositivo: POST, velocidad: 19200, datos: 8, paridad: "N", parada: 1, conectado: true },
+    { id: "3", com: 3, dispositivo: LECTORLED, velocidad: 9600, datos: 8, paridad: "N", parada: 1, conectado: false }]
+
+
 const http = require('http');
 const WebSocketServer = require('websocket').server;
 const net = require('net');
@@ -28,9 +38,37 @@ const mimeType = {
     '.ttf': 'aplication/font-sfnt'
 };
 const SerialPort = require('serialport')
-const sPort = new SerialPort('COM3', {
-    baudRate: 9600
+
+
+let connection = null
+const dispositivos = {}
+configuracion.forEach(conf => {
+    if (conf.conectado) {
+        let sPort = new SerialPort("COM" + conf.id, {
+            baudRate: conf.velocidad
+        })
+        sPort.on('error', function (err) {
+            // connection.sendUTF("#" + conf.dispositivo + "#" + "Error: " + err.mensaje);
+            console.log('Error: ', err.message)
+        })
+        sPort.on('open', function () {
+            // connection.sendUTF("#" + conf.dispositivo + "#" + "abierto");
+            console.log(conf.dispositivo, 'Abierto')
+        })
+
+
+        sPort.on('data', function (data) {
+            //connection.sendUTF("#" + conf.dispositivo + "#" + data);
+
+            console.log('Data:', data.toString())
+        })
+
+        dispositivos[conf.dispositivo] = sPort
+    }
 })
+
+
+
 
 /* sPort.write('main screen turn on', function (err) {
     if (err) {
@@ -40,16 +78,7 @@ const sPort = new SerialPort('COM3', {
 }) */
 
 // Open errors will be emitted as an error event
-sPort.on('error', function (err) {
-    console.log('Error: ', err.message)
-})
-sPort.on('open', function () {
-    console.log('COM3: ', 'Abierto')
-})
-sPort.on('data', function (data) {
-    connection.sendUTF("#03" + data);
-    console.log('Data:', data)
-})
+
 let response = null
 client.on('data', (data) => {
     console.log('data received');
@@ -116,7 +145,7 @@ const server = http.createServer(
 const wsServer = new WebSocketServer({
     httpServer: server
 });
-let connection = null
+
 wsServer.on('request', function (request) {
     connection = request.accept(null, request.origin);
     connection.on('message', function (message) {
@@ -134,6 +163,14 @@ wsServer.on('request', function (request) {
             const mensaje = message.utf8Data.replace("$send:", "$")
             console.log(mensaje);
             client.write(mensaje)
+        }
+        if (message.utf8Data.indexOf("#") == 0) {
+
+            const dispositivo = message.utf8Data.split("#")[1]
+            const mensaje = message.utf8Data.split("#")[2]
+            console.log("dispositivo:" + dispositivo);
+            console.log("mensaje:" + mensaje);
+            dispositivos[dispositivo].write(mensaje)
         }
     });
     connection.on('close', function (reasonCode, description) {
