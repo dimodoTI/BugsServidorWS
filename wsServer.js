@@ -41,43 +41,39 @@ const SerialPort = require('serialport')
 
 
 let connection = null
-const dispositivos = {}
-configuracion.forEach(conf => {
-    if (conf.conectado) {
-        let sPort = new SerialPort("COM" + conf.id, {
-            baudRate: conf.velocidad
-        })
-        sPort.on('error', function (err) {
-            // connection.sendUTF("#" + conf.dispositivo + "#" + "Error: " + err.mensaje);
-            console.log('Error: ', err.message)
-        })
-        sPort.on('open', function () {
-            // connection.sendUTF("#" + conf.dispositivo + "#" + "abierto");
-            console.log(conf.dispositivo, 'Abierto')
-        })
+let dispositivos = null
+const conectarDispositivos = (connection, configuracion) => {
+    const disp = {}
+
+    configuracion.forEach(conf => {
+
+        if (conf.conectado) {
+            let sPort = new SerialPort("COM" + conf.id, {
+                baudRate: conf.velocidad
+            })
+            sPort.on('error', function (err) {
+                // connection.sendUTF("#" + conf.dispositivo + "#" + "Error: " + err.mensaje);
+                console.log('Error: ', err.message)
+            })
+            sPort.on('open', function () {
+
+                console.log(conf.dispositivo, 'Abierto')
+            })
+            sPort.on('data', function (data) {
+                connection.sendUTF("#" + conf.dispositivo + "#" + data);
+                console.log('Data:', data)
+                    ;
+            })
+
+            disp[conf.dispositivo] = sPort
+        }
+
+    })
+
+    return disp
+}
 
 
-        sPort.on('data', function (data) {
-            //connection.sendUTF("#" + conf.dispositivo + "#" + data);
-
-            console.log('Data:', data.toString())
-        })
-
-        dispositivos[conf.dispositivo] = sPort
-    }
-})
-
-
-
-
-/* sPort.write('main screen turn on', function (err) {
-    if (err) {
-        return console.log('Error on write: ', err.message)
-    }
-    console.log('message written')
-}) */
-
-// Open errors will be emitted as an error event
 
 let response = null
 client.on('data', (data) => {
@@ -148,6 +144,14 @@ const wsServer = new WebSocketServer({
 
 wsServer.on('request', function (request) {
     connection = request.accept(null, request.origin);
+    if (dispositivos) {
+        console.log("cerrando posNet")
+        dispositivos.postNet.close()
+        dispositivos.postNet = null
+    }
+    setTimeout(() => { dispositivos = conectarDispositivos(connection, configuracion) }, 1000)
+
+
     connection.on('message', function (message) {
         console.log('Received Message:', message.utf8Data);
         if (message.utf8Data == "connect" && !clientConectado) {
@@ -176,4 +180,7 @@ wsServer.on('request', function (request) {
     connection.on('close', function (reasonCode, description) {
         console.log('Client has disconnected.');
     });
+
+
+
 });
