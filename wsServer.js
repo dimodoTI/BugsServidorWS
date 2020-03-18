@@ -44,7 +44,7 @@ let connection = null
 let dispositivos = null
 const conectarDispositivos = (connection, configuracion) => {
     const disp = {}
-
+    // comentario
     configuracion.forEach(conf => {
 
         if (conf.conectado) {
