@@ -1,13 +1,39 @@
-
 //import { TARJETACHIP, POST, LECTORLED } from "./dispositivos.mjs"
 const TARJETACHIP = "tarjetaChip"
 const POST = "postNet"
 const LECTORLED = "lectorLed"
 
-const configuracion = [
-    { id: "1", com: 1, dispositivo: TARJETACHIP, velocidad: 9600, datos: 8, paridad: "N", parada: 1, conectado: false },
-    { id: "6", com: 6, dispositivo: POST, velocidad: 19200, datos: 8, paridad: "N", parada: 1, conectado: true },
-    { id: "3", com: 3, dispositivo: LECTORLED, velocidad: 9600, datos: 8, paridad: "N", parada: 1, conectado: false }]
+const configuracion = [{
+        id: "1",
+        com: 1,
+        dispositivo: TARJETACHIP,
+        velocidad: 9600,
+        datos: 8,
+        paridad: "N",
+        parada: 1,
+        conectado: false
+    },
+    {
+        id: "3",
+        com: 3,
+        dispositivo: POST,
+        velocidad: 19200,
+        datos: 8,
+        paridad: "N",
+        parada: 1,
+        conectado: true
+    },
+    {
+        id: "2",
+        com: 2,
+        dispositivo: LECTORLED,
+        velocidad: 9600,
+        datos: 8,
+        paridad: "N",
+        parada: 1,
+        conectado: false
+    }
+]
 
 
 const http = require('http');
@@ -61,8 +87,7 @@ const conectarDispositivos = (connection, configuracion) => {
             })
             sPort.on('data', function (data) {
                 connection.sendUTF("#" + conf.dispositivo + "#" + data);
-                console.log('Data:', data)
-                    ;
+                console.log('Data:', data);
             })
 
             disp[conf.dispositivo] = sPort
@@ -149,16 +174,18 @@ wsServer.on('request', function (request) {
         dispositivos.postNet.close()
         dispositivos.postNet = null
     }
-    setTimeout(() => { dispositivos = conectarDispositivos(connection, configuracion) }, 1000)
+    setTimeout(() => {
+        dispositivos = conectarDispositivos(connection, configuracion)
+    }, 1000)
 
 
     connection.on('message', function (message) {
         console.log('Received Message:', message.utf8Data);
         if (message.utf8Data == "connect" && !clientConectado) {
-            client.connect(4000, '192.168.0.50', () => {
+            client.connect(4000, '192.168.0.21', () => {
                 clientConectado = true;
                 console.log('Connected');
-                connection.sendUTF('Connectado al 192.168.0.50 port 4000');
+                connection.sendUTF('Connectado al 192.168.1.107 port 4000');
             })
         }
 
