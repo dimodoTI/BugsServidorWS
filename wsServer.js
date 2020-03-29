@@ -5,34 +5,34 @@ const LECTORLED = "lectorLed";
 
 const configuracion = [
   {
-    id: "5",
-    com: 5,
+    id: 1,
+    com: 6,
     dispositivo: TARJETACHIP,
     velocidad: 19200,
     datos: 8,
-    paridad: "N",
+    paridad: "none",
     parada: 1,
     rtscts: true,
     conectado: true
   },
   {
-    id: "3",
+    id: 2,
     com: 3,
     dispositivo: POST,
     velocidad: 19200,
     datos: 8,
-    paridad: "N",
+    paridad: "none",
     parada: 1,
     rtscts: false,
     conectado: true
   },
   {
-    id: "2",
+    id: 3,
     com: 2,
     dispositivo: LECTORLED,
     velocidad: 9600,
     datos: 8,
-    paridad: "N",
+    paridad: "none",
     parada: 1,
     conectado: false
   }
@@ -47,7 +47,12 @@ const url = require("url");
 const fs = require("fs");
 const path = require("path");
 // you can pass the parameter in the command line. e.g. node static_server.js 3000
-const port = process.argv[2] || 9000;
+const port = process.argv[3] || 9000;
+
+const IP = require("os")
+  .networkInterfaces()
+  .Ethernet.find(elm => elm.family == "IPv4").address;
+
 // maps file extention to MIME types
 const mimeType = {
   ".ico": "image/x-icon",
@@ -74,20 +79,23 @@ const conectarDispositivos = (connection, configuracion) => {
   // comentario
   configuracion.forEach(conf => {
     if (conf.conectado) {
-      let sPort = new SerialPort("COM" + conf.id, {
+      let sPort = new SerialPort("COM" + conf.com, {
         baudRate: conf.velocidad,
+        dataBits: conf.datos,
+        parity: conf.paridad,
+        stopBits: conf.parada,
         rtscts: conf.rtscts
       });
       sPort.on("error", function(err) {
         // connection.sendUTF("#" + conf.dispositivo + "#" + "Error: " + err.mensaje);
-        console.log("Error: ", err.message);
+        console.log(err);
       });
       sPort.on("open", function() {
         console.log(conf.dispositivo, "Abierto");
       });
       sPort.on("data", function(data) {
-        connection.sendUTF("#" + conf.dispositivo + "#" + data);
         console.log("Data:", data);
+        connection.sendUTF("#" + conf.dispositivo + "#" + data);
       });
 
       disp[conf.dispositivo] = sPort;
@@ -191,10 +199,10 @@ wsServer.on("request", function(request) {
   connection.on("message", function(message) {
     console.log("Received Message:", message.utf8Data);
     if (message.utf8Data == "connect" && !clientConectado) {
-      client.connect(4000, "192.168.0.21", () => {
+      client.connect(4000, IP, () => {
         clientConectado = true;
         console.log("Connected");
-        connection.sendUTF("Connectado al 192.168.1.107 port 4000");
+        connection.sendUTF("Connectado al " + IP + " port 4000");
       });
     }
 
@@ -207,9 +215,12 @@ wsServer.on("request", function(request) {
     if (message.utf8Data.indexOf("#") == 0) {
       const dispositivo = message.utf8Data.split("#")[1];
       const mensaje = message.utf8Data.split("#")[2];
+
+      dispositivos[dispositivo].write(mensaje);
+
       console.log("dispositivo:" + dispositivo);
       console.log("mensaje:" + mensaje);
-      dispositivos[dispositivo].write(mensaje);
+      console.log("length:" + mensaje.length);
     }
   });
   connection.on("close", function(reasonCode, description) {
