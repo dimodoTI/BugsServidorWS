@@ -3,17 +3,16 @@ const TARJETACHIP = "tarjetaChip";
 const POST = "postNet";
 const LECTORLED = "lectorLed";
 
-const configuracion = [
-  {
+const configuracion = [{
     id: 1,
-    com: 6,
+    com: 5,
     dispositivo: TARJETACHIP,
     velocidad: 19200,
     datos: 8,
     paridad: "none",
     parada: 1,
-    rtscts: true,
-    conectado: true
+    rtscts: false,
+    conectado: true,
   },
   {
     id: 2,
@@ -24,7 +23,7 @@ const configuracion = [
     paridad: "none",
     parada: 1,
     rtscts: false,
-    conectado: true
+    conectado: true,
   },
   {
     id: 3,
@@ -34,8 +33,8 @@ const configuracion = [
     datos: 8,
     paridad: "none",
     parada: 1,
-    conectado: false
-  }
+    conectado: false,
+  },
 ];
 
 const http = require("http");
@@ -48,10 +47,12 @@ const fs = require("fs");
 const path = require("path");
 // you can pass the parameter in the command line. e.g. node static_server.js 3000
 const port = process.argv[3] || 9000;
-
-const IP = require("os")
-  .networkInterfaces()
-  .Ethernet.find(elm => elm.family == "IPv4").address;
+const localIpV4Address = require("local-ipv4-address");
+let IP = ""
+localIpV4Address().then(function (ipAddress) {
+  console.log("IP=" + ipAddress);
+  IP = ipAddress
+});
 
 // maps file extention to MIME types
 const mimeType = {
@@ -68,7 +69,7 @@ const mimeType = {
   ".pdf": "application/pdf",
   ".doc": "application/msword",
   ".eot": "appliaction/vnd.ms-fontobject",
-  ".ttf": "aplication/font-sfnt"
+  ".ttf": "aplication/font-sfnt",
 };
 const SerialPort = require("serialport");
 
@@ -77,23 +78,23 @@ let dispositivos = null;
 const conectarDispositivos = (connection, configuracion) => {
   const disp = {};
   // comentario
-  configuracion.forEach(conf => {
+  configuracion.forEach((conf) => {
     if (conf.conectado) {
       let sPort = new SerialPort("COM" + conf.com, {
         baudRate: conf.velocidad,
         dataBits: conf.datos,
         parity: conf.paridad,
         stopBits: conf.parada,
-        rtscts: conf.rtscts
+        rtscts: conf.rtscts,
       });
-      sPort.on("error", function(err) {
+      sPort.on("error", function (err) {
         // connection.sendUTF("#" + conf.dispositivo + "#" + "Error: " + err.mensaje);
         console.log(err);
       });
-      sPort.on("open", function() {
+      sPort.on("open", function () {
         console.log(conf.dispositivo, "Abierto");
       });
-      sPort.on("data", function(data) {
+      sPort.on("data", function (data) {
         console.log("Data:", data);
         connection.sendUTF("#" + conf.dispositivo + "#" + data);
       });
@@ -106,7 +107,7 @@ const conectarDispositivos = (connection, configuracion) => {
 };
 
 const desconectarDispositivos = (dispositivos, configuracion) => {
-  configuracion.forEach(conf => {
+  configuracion.forEach((conf) => {
     if (conf.conectado) {
       console.log("cerrando " + conf.dispositivo);
       dispositivos[conf.dispositivo].close();
@@ -116,7 +117,7 @@ const desconectarDispositivos = (dispositivos, configuracion) => {
 };
 
 let response = null;
-client.on("data", data => {
+client.on("data", (data) => {
   console.log("data received");
   connection.sendUTF(data);
   /* response.write('Servidor: ' + data + "</br>");
@@ -134,10 +135,10 @@ const server = http
     response = res;
     let body = [];
     req
-      .on("error", err => {
+      .on("error", (err) => {
         console.error(err);
       })
-      .on("data", chunk => {
+      .on("data", (chunk) => {
         body.push(chunk);
       })
       .on("end", () => {
@@ -152,7 +153,7 @@ const server = http
           .replace(/^(\.\.[\/\\])+/, "");
         let pathname = path.join(__dirname, sanitizePath);
 
-        fs.exists(pathname, function(exist) {
+        fs.exists(pathname, function (exist) {
           if (!exist) {
             // if the file is not found, return 404
             res.statusCode = 404;
@@ -166,7 +167,7 @@ const server = http
           }
 
           // read file from file system
-          fs.readFile(pathname, function(err, data) {
+          fs.readFile(pathname, function (err, data) {
             if (err) {
               res.statusCode = 500;
               res.end(`Error getting the file: ${err}.`);
@@ -184,10 +185,10 @@ const server = http
   .listen(port);
 
 const wsServer = new WebSocketServer({
-  httpServer: server
+  httpServer: server,
 });
 
-wsServer.on("request", function(request) {
+wsServer.on("request", function (request) {
   connection = request.accept(null, request.origin);
   if (dispositivos) {
     desconectarDispositivos(dispositivos, configuracion);
@@ -196,7 +197,7 @@ wsServer.on("request", function(request) {
     dispositivos = conectarDispositivos(connection, configuracion);
   }, 1000);
 
-  connection.on("message", function(message) {
+  connection.on("message", function (message) {
     console.log("Received Message:", message.utf8Data);
     if (message.utf8Data == "connect" && !clientConectado) {
       client.connect(4000, IP, () => {
@@ -216,14 +217,62 @@ wsServer.on("request", function(request) {
       const dispositivo = message.utf8Data.split("#")[1];
       const mensaje = message.utf8Data.split("#")[2];
 
+      if (mensaje == ">g" + String.fromCharCode(parseInt("0A", 16))) {
+        dispositivos[dispositivo].get((error, data) => {
+          if (error) console.log(error);
+          if (data) connection.sendUTF("#" + dispositivo + "#" + JSON.stringify(data));;
+        })
+        return
+      }
+      if (mensaje == ">s1" + String.fromCharCode(parseInt("0A", 16))) {
+        dispositivos[dispositivo].set({
+          rts: true,
+          dtr: true
+        }, (error) => {
+
+          connection.sendUTF("#" + dispositivo + "#" + (!error).toString() + String.fromCharCode(parseInt("10", 16)));
+
+        });
+        return
+      }
+      if (mensaje == ">s0" + String.fromCharCode(parseInt("0A", 16))) {
+        dispositivos[dispositivo].set({
+          rts: false,
+          dtr: false
+        }, (error) => {
+
+          connection.sendUTF("#" + dispositivo + "#" + (!error).toString() + String.fromCharCode(parseInt("10", 16)));
+        });
+        return
+      }
+
       dispositivos[dispositivo].write(mensaje);
+
+
+
+
 
       console.log("dispositivo:" + dispositivo);
       console.log("mensaje:" + mensaje);
       console.log("length:" + mensaje.length);
     }
   });
-  connection.on("close", function(reasonCode, description) {
+  connection.on("close", function (reasonCode, description) {
     console.log("Client has disconnected.");
   });
 });
+
+const getJsonFile = (path) => {
+  let output = {};
+  try {
+    let json = fs.readFileSync(path);
+    output = JSON.parse(json);
+  } catch (e) {
+    output = {};
+
+    // console.log(e.message, e.stack);
+  }
+  return output;
+};
+
+module.exports = exports = getJsonFile;
