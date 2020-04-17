@@ -1,188 +1,11 @@
-//import { TARJETACHIP, POST, LECTORLED } from "./dispositivos.mjs"
-const TARJETACHIP = "tarjetaChip";
-const POST = "postNet";
-const LECTORLED = "lectorLed";
-
-const configuracion = [{
-    id: 1,
-    com: 5,
-    dispositivo: TARJETACHIP,
-    velocidad: 19200,
-    datos: 8,
-    paridad: "none",
-    parada: 1,
-    rtscts: false,
-    conectado: true,
-  },
-  {
-    id: 2,
-    com: 3,
-    dispositivo: POST,
-    velocidad: 19200,
-    datos: 8,
-    paridad: "none",
-    parada: 1,
-    rtscts: false,
-    conectado: true,
-  },
-  {
-    id: 3,
-    com: 2,
-    dispositivo: LECTORLED,
-    velocidad: 9600,
-    datos: 8,
-    paridad: "none",
-    parada: 1,
-    conectado: false,
-  },
-];
-
-const http = require("http");
+const dispositivos = require("./dispositivos.json")
+const conectarDispositivos = require("./dispositivos").conectarDispositivos
+const desconectarDispositivos = require("./dispositivos").desconectarDispositivos
+const server = require("./httpServer.js").server
 const WebSocketServer = require("websocket").server;
-const net = require("net");
-const client = new net.Socket();
-let clientConectado = false;
-const url = require("url");
-const fs = require("fs");
-const path = require("path");
-// you can pass the parameter in the command line. e.g. node static_server.js 3000
-const port = process.argv[3] || 9000;
-const localIpV4Address = require("local-ipv4-address");
-let IP = ""
-localIpV4Address().then(function (ipAddress) {
-  console.log("IP=" + ipAddress);
-  IP = ipAddress
-});
-
-// maps file extention to MIME types
-const mimeType = {
-  ".ico": "image/x-icon",
-  ".html": "text/html",
-  ".js": "text/javascript",
-  ".json": "application/json",
-  ".css": "text/css",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".wav": "audio/wav",
-  ".mp3": "audio/mpeg",
-  ".svg": "image/svg+xml",
-  ".pdf": "application/pdf",
-  ".doc": "application/msword",
-  ".eot": "appliaction/vnd.ms-fontobject",
-  ".ttf": "aplication/font-sfnt",
-};
-const SerialPort = require("serialport");
-
-let connection = null;
-let dispositivos = null;
-const conectarDispositivos = (connection, configuracion) => {
-  const disp = {};
-  // comentario
-  configuracion.forEach((conf) => {
-    if (conf.conectado) {
-      let sPort = new SerialPort("COM" + conf.com, {
-        baudRate: conf.velocidad,
-        dataBits: conf.datos,
-        parity: conf.paridad,
-        stopBits: conf.parada,
-        rtscts: conf.rtscts,
-      });
-      sPort.on("error", function (err) {
-        // connection.sendUTF("#" + conf.dispositivo + "#" + "Error: " + err.mensaje);
-        console.log(err);
-      });
-      sPort.on("open", function () {
-        console.log(conf.dispositivo, "Abierto");
-      });
-      sPort.on("data", function (data) {
-        console.log("Data:", data);
-        connection.sendUTF("#" + conf.dispositivo + "#" + data);
-      });
-
-      disp[conf.dispositivo] = sPort;
-    }
-  });
-
-  return disp;
-};
-
-const desconectarDispositivos = (dispositivos, configuracion) => {
-  configuracion.forEach((conf) => {
-    if (conf.conectado) {
-      console.log("cerrando " + conf.dispositivo);
-      dispositivos[conf.dispositivo].close();
-      dispositivos[conf.dispositivo] = null;
-    }
-  });
-};
-
-let response = null;
-client.on("data", (data) => {
-  console.log("data received");
-  connection.sendUTF(data);
-  /* response.write('Servidor: ' + data + "</br>");
-    response.end(); */
-});
-client.on("close", () => {
-  clientConectado = false;
-  console.log("Closed");
-  client.destroy();
-  client = new net.Socket();
-  response.end("Connection closed");
-});
-const server = http
-  .createServer((req, res) => {
-    response = res;
-    let body = [];
-    req
-      .on("error", (err) => {
-        console.error(err);
-      })
-      .on("data", (chunk) => {
-        body.push(chunk);
-      })
-      .on("end", () => {
-        const parsedUrl = url.parse(req.url);
-
-        // extract URL path
-        // Avoid https://en.wikipedia.org/wiki/Directory_traversal_attack
-        // e.g curl --path-as-is http://localhost:9000/../fileInDanger.txt
-        // by limiting the path to current directory only
-        const sanitizePath = path
-          .normalize(parsedUrl.pathname)
-          .replace(/^(\.\.[\/\\])+/, "");
-        let pathname = path.join(__dirname, sanitizePath);
-
-        fs.exists(pathname, function (exist) {
-          if (!exist) {
-            // if the file is not found, return 404
-            res.statusCode = 404;
-            res.end(`File ${pathname} not found!`);
-            return;
-          }
-
-          // if is a directory, then look for index.html
-          if (fs.statSync(pathname).isDirectory()) {
-            pathname += "/index.html";
-          }
-
-          // read file from file system
-          fs.readFile(pathname, function (err, data) {
-            if (err) {
-              res.statusCode = 500;
-              res.end(`Error getting the file: ${err}.`);
-            } else {
-              // based on the URL path, extract the file extention. e.g. .js, .doc, ...
-              const ext = path.parse(pathname).ext;
-              // if the file is found, set Content-type and send data
-              res.setHeader("Content-type", mimeType[ext] || "text/plain");
-              res.end(data);
-            }
-          });
-        });
-      });
-  })
-  .listen(port);
+const crearSocket = require("./socket.js").crearSocket
+let dispositivosConectados = null
+let socket = null
 
 const wsServer = new WebSocketServer({
   httpServer: server,
@@ -190,42 +13,40 @@ const wsServer = new WebSocketServer({
 
 wsServer.on("request", function (request) {
   connection = request.accept(null, request.origin);
-  if (dispositivos) {
-    desconectarDispositivos(dispositivos, configuracion);
+  if (dispositivosConectados) {
+    desconectarDispositivos(dispositivosConectados, configuracion);
   }
   setTimeout(() => {
-    dispositivos = conectarDispositivos(connection, configuracion);
+    dispositivosConectados = conectarDispositivos(connection, dispositivos);
   }, 1000);
 
   connection.on("message", function (message) {
     console.log("Received Message:", message.utf8Data);
-    if (message.utf8Data == "connect" && !clientConectado) {
-      client.connect(4000, IP, () => {
-        clientConectado = true;
-        console.log("Connected");
-        connection.sendUTF("Connectado al " + IP + " port 4000");
-      });
+
+    if (message.utf8Data == "connect" && !socket) {
+      socket = crearSocket(connection)
     }
 
     if (message.utf8Data.indexOf("$send") == 0) {
       console.log(message.utf8Data);
       const mensaje = message.utf8Data.replace("$send:", "$");
       console.log(mensaje);
-      client.write(mensaje);
+      socket.write(mensaje);
     }
+
     if (message.utf8Data.indexOf("#") == 0) {
       const dispositivo = message.utf8Data.split("#")[1];
       const mensaje = message.utf8Data.split("#")[2];
 
       if (mensaje == ">g" + String.fromCharCode(parseInt("0A", 16))) {
-        dispositivos[dispositivo].get((error, data) => {
+        dispositivosConectados[dispositivo].get((error, data) => {
           if (error) console.log(error);
           if (data) connection.sendUTF("#" + dispositivo + "#" + JSON.stringify(data));;
         })
         return
       }
       if (mensaje == ">s1" + String.fromCharCode(parseInt("0A", 16))) {
-        dispositivos[dispositivo].set({
+        dispositivosConectados[dispositivo].set({
           rts: true,
           dtr: true
         }, (error) => {
@@ -236,7 +57,7 @@ wsServer.on("request", function (request) {
         return
       }
       if (mensaje == ">s0" + String.fromCharCode(parseInt("0A", 16))) {
-        dispositivos[dispositivo].set({
+        dispositivosConectados[dispositivo].set({
           rts: false,
           dtr: false
         }, (error) => {
@@ -246,11 +67,7 @@ wsServer.on("request", function (request) {
         return
       }
 
-      dispositivos[dispositivo].write(mensaje);
-
-
-
-
+      dispositivosConectados[dispositivo].write(mensaje);
 
       console.log("dispositivo:" + dispositivo);
       console.log("mensaje:" + mensaje);

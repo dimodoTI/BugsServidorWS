@@ -1,0 +1,25 @@
+[{
+    "nombre": "tarjetaChip",
+    "config": {
+        "id": 1,
+        "com": 5,
+        "velocidad": 19200,
+        "datos": 8,
+        "paridad": "none",
+        "parada": 1,
+        "rtscts": false,
+        "conectado": true
+    }
+}, {
+    "nombre": "postNet",
+    "config": {
+        "id": 2,
+        "com": 3,
+        "velocidad": 19200,
+        "datos": 8,
+        "paridad": "none",
+        "parada": 1,
+        "rtscts": false,
+        "conectado": true
+    }
+}]
