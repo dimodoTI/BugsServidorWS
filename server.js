@@ -1,81 +1,95 @@
-const http = require('http');
+const dispositivos = require("./dispositivos.json")
+const conectarDispositivos = require("./dispositivos").conectarDispositivos
+const desconectarDispositivos = require("./dispositivos").desconectarDispositivos
+const server = require("./httpServer.js").server
+const WebSocketServer = require("websocket").server;
+const crearSocket = require("./socket.js").crearSocket
+let dispositivosConectados = null
+let socket = null
 
-const net = require('net');
-
-const client = new net.Socket();
-
-let response = null
-
-client.on('data', (data) => {
-    console.log('data received');
-    //client.destroy(); // kill client after server's response
-    response.write('Servidor: ' + data + "</br>");
-    response.end();
-
-});
-client.on('close', () => {
-    console.log('Closed');
-    client.destroy();
-    client = new net.Socket();
-    response.end('Connection closed');
-
+const wsServer = new WebSocketServer({
+  httpServer: server,
 });
 
-http.createServer((request, resp) => {
-    response = resp
-    const {
-        headers,
-        method,
-        url
-    } = request;
-    let body = [];
-    request.on('error', (err) => {
-        console.error(err);
-    }).on('data', (chunk) => {
-        body.push(chunk);
-    }).on('end', () => {
+wsServer.on("request", function (request) {
+  connection = request.accept(null, request.origin);
+  if (dispositivosConectados) {
+    desconectarDispositivos(dispositivosConectados, configuracion);
+  }
+  setTimeout(() => {
+    dispositivosConectados = conectarDispositivos(connection, dispositivos);
+  }, 1000);
 
-        body = Buffer.concat(body).toString();
-        // BEGINNING OF NEW STUFF
+  connection.on("message", function (message) {
+    console.log("Received Message:", message.utf8Data);
 
-        response.on('error', (err) => {
-            console.error(err);
+    if (message.utf8Data == "connect" && !socket) {
+      socket = crearSocket(connection)
+    }
+
+    if (message.utf8Data.indexOf("$send") == 0) {
+      console.log(message.utf8Data);
+      const mensaje = message.utf8Data.replace("$send:", "$");
+      console.log(mensaje);
+      socket.write(mensaje);
+    }
+
+    if (message.utf8Data.indexOf("#") == 0) {
+      const dispositivo = message.utf8Data.split("#")[1];
+      const mensaje = message.utf8Data.split("#")[2];
+
+      if (mensaje == ">g" + String.fromCharCode(parseInt("0A", 16))) {
+        dispositivosConectados[dispositivo].get((error, data) => {
+          if (error) console.log(error);
+          if (data) connection.sendUTF("#" + dispositivo + "#" + JSON.stringify(data));;
+        })
+        return
+      }
+      if (mensaje == ">s1" + String.fromCharCode(parseInt("0A", 16))) {
+        dispositivosConectados[dispositivo].set({
+          rts: true,
+          dtr: true
+        }, (error) => {
+
+          connection.sendUTF("#" + dispositivo + "#" + (!error).toString() + String.fromCharCode(parseInt("10", 16)));
+
         });
+        return
+      }
+      if (mensaje == ">s0" + String.fromCharCode(parseInt("0A", 16))) {
+        dispositivosConectados[dispositivo].set({
+          rts: false,
+          dtr: false
+        }, (error) => {
 
-        response.statusCode = 200;
-        response.setHeader('Content-Type', 'text/html');
-        // Note: the 2 lines above could be replaced with this next one:
-        // response.writeHead(200, {'Content-Type': 'application/json'})
+          connection.sendUTF("#" + dispositivo + "#" + (!error).toString() + String.fromCharCode(parseInt("10", 16)));
+        });
+        return
+      }
 
-        const responseBody = {
-            headers,
-            method,
-            url,
-            body
-        };
+      dispositivosConectados[dispositivo].write(mensaje);
 
-        //response.write(JSON.stringify(responseBody));
-        if (url.toUpperCase().indexOf("/INDEX.HTML") != -1) {
-            response.write('<a href="http://localhost:5000/Connect">Conectar</a>')
-            response.write('<a href="http://localhost:5000/Write?$PL01!">PINK</a>')
-            response.end()
-        }
+      console.log("dispositivo:" + dispositivo);
+      console.log("mensaje:" + mensaje);
+      console.log("length:" + mensaje.length);
+    }
+  });
+  connection.on("close", function (reasonCode, description) {
+    console.log("Client has disconnected.");
+  });
+});
 
-        if (url.toUpperCase().indexOf("CONNECT") != -1) {
-            client.connect(4000, '10.1.6.61', () => {
-                console.log('Connected');
-                response.write('Connectado al 10.1.6.61 port 4000</br>');
-                response.end()
-            })
-        }
-        if (url.toUpperCase().indexOf("WRITE") != -1) {
-            console.log('writing');
-            client.write(url.split("?")[1])
-        }
-        //response.end();
-        // Note: the 2 lines above could be replaced with this next one:
-        // response.end(JSON.stringify(responseBody))
+const getJsonFile = (path) => {
+  let output = {};
+  try {
+    let json = fs.readFileSync(path);
+    output = JSON.parse(json);
+  } catch (e) {
+    output = {};
 
-        // END OF NEW STUFF
-    });
-}).listen(5000);
+    // console.log(e.message, e.stack);
+  }
+  return output;
+};
+
+module.exports = exports = getJsonFile;
