@@ -20,6 +20,6 @@
         "paridad": "none",
         "parada": 1,
         "rtscts": false,
-        "conectado": true
+        "conectado": false
     }
 }]

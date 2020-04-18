@@ -20,7 +20,12 @@ exports.conectarDispositivos = (connection, dispositivos) => {
             });
             sPort.on("data", function (data) {
                 console.log("Data:", data);
-                connection.sendUTF("#" + dispositivo.nombre + "#" + data);
+                //connection.sendUTF("#" + dispositivo.nombre + "#" + data);
+                connection.sendUTF(JSON.stringify({
+                    periferico: dispositivo.nombre,
+                    comando: "info",
+                    data: data.toString('utf8')
+                }));
             });
 
             resultado[dispositivo.nombre] = sPort;
@@ -31,9 +36,9 @@ exports.conectarDispositivos = (connection, dispositivos) => {
 };
 
 exports.desconectarDispositivos = (dispositivosConectados) => {
-    Object.entries(dispositivosConectados).forEach((nombre, dispositivo => {
-        dispositivo.close()
-        dispositivo = null
-        console.log("cerrando " + nombre);
-    }))
+    Object.keys(dispositivosConectados).forEach((prop) => {
+        dispositivosConectados[prop].close()
+        dispositivosConectados[prop] = null
+        console.log("cerrando " + prop);
+    })
 };
