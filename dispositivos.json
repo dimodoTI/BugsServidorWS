@@ -8,18 +8,18 @@
         "paridad": "none",
         "parada": 1,
         "rtscts": false,
-        "conectado": true
+        "conectado": false
     }
 }, {
-    "nombre": "postNet",
+    "nombre": "posNet",
     "config": {
         "id": 2,
-        "com": 3,
+        "com": 4,
         "velocidad": 19200,
         "datos": 8,
         "paridad": "none",
         "parada": 1,
         "rtscts": false,
-        "conectado": false
+        "conectado": true
     }
 }]

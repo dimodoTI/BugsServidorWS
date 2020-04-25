@@ -1,6 +1,7 @@
 const SerialPort = require("serialport");
 
 exports.conectarDispositivos = (connection, dispositivos) => {
+
     const resultado = {};
     dispositivos.forEach((dispositivo) => {
         if (dispositivo.config.conectado) {
@@ -9,7 +10,7 @@ exports.conectarDispositivos = (connection, dispositivos) => {
                 dataBits: dispositivo.config.datos,
                 parity: dispositivo.config.paridad,
                 stopBits: dispositivo.config.parada,
-                rtscts: dispositivo.config.rtscts,
+                rtscts: dispositivo.config.rtscts
             });
             sPort.on("error", function (err) {
                 // connection.sendUTF("#" + conf.dispositivo + "#" + "Error: " + err.mensaje);
@@ -24,7 +25,7 @@ exports.conectarDispositivos = (connection, dispositivos) => {
                 connection.sendUTF(JSON.stringify({
                     periferico: dispositivo.nombre,
                     comando: "info",
-                    data: data.toString('utf8')
+                    data: encodeURIComponent(data)
                 }));
             });
 
@@ -42,3 +43,16 @@ exports.desconectarDispositivos = (dispositivosConectados) => {
         console.log("cerrando " + prop);
     })
 };
+
+exports.listarDispositivos = () => {
+    SerialPort.list().then(
+        ports => {
+            ports.forEach(port => {
+                console.log(`${port.path}\t${port.pnpId || ''}\t${port.manufacturer || ''}`)
+            })
+        },
+        err => {
+            console.error('Error listing ports', err)
+        }
+    )
+}
