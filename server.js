@@ -84,6 +84,14 @@ wsServer.on("request", function (request) {
 
            console.log("ms:" + decodeURIComponent(mensaje.subComando))
            console.log("ok:" + textmess) */
+          let hexmess = ["02", "43", "49", "45", "00", "00", "03", "4C"]
+          let textmess = ""
+          hexmess.forEach(i => {
+            textmess += String.fromCharCode(parseInt(i, 16))
+
+          })
+          console.log("ms:" + decodeURIComponent(mensaje.subComando))
+          console.log("ok:" + textmess)
 
           dispositivosConectados[mensaje.periferico].write(decodeURIComponent(mensaje.subComando));
         }
