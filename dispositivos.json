@@ -8,13 +8,13 @@
         "paridad": "none",
         "parada": 1,
         "rtscts": false,
-        "conectado": false
+        "conectado": true
     }
 }, {
     "nombre": "posNet",
     "config": {
         "id": 2,
-        "com": 4,
+        "com": 3,
         "velocidad": 19200,
         "datos": 8,
         "paridad": "none",
