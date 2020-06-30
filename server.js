@@ -1,152 +1,165 @@
-const os = require('os');
-const hostname = os.hostname()
+const helpers = require("./helpers.js")
+const macaddress = require('macaddress');
+let licencia = null;
+let config = null
 
-const escpos = require('escpos');
-escpos.USB = require('escpos-usb');
+try {
+  licencia = helpers.decrypt(helpers.getFile("./bugs.license"))
+  config = JSON.parse(licencia)
+} catch {
+  console.log("Licencia corrupta!!!")
+  return
+}
 
-const dispositivos = require("./dispositivos.json")
-const conectarDispositivos = require("./dispositivos").conectarDispositivos;
-const desconectarDispositivos = require("./dispositivos").desconectarDispositivos;
-const listarDispositivos = require("./dispositivos").listarDispositivos
-const impresoraConfig = require("./dispositivos").getDispositivosUsb(dispositivos, "impresora")
-const server = require("./httpServer.js").server;
-const WebSocketServer = require("websocket").server;
-const crearSocket = require("./socket.js").crearSocket;
-const abrirImpresora = require("./dispositivosUSB").abrirImpresora;
-const testOnline = require("./dispositivosUSB").testOnline;
-const imprimirBono = require("./dispositivosUSB").imprimirBono
-
-let dispositivosConectados = null;
-let socket = null;
-let connection = null
-
-const wsServer = new WebSocketServer({
-  httpServer: server,
+macaddress.all().then((all) => {
+  console.log(JSON.stringify(all, null, 2));
+  if (!all[config.macaddress.propertyName]) throw "licencia caduca (name)"
+  if (all[config.macaddress.propertyName].mac != config.macaddress.value) {
+    throw "licencia caduca (value)"
+  }
+  iniciar()
+}).catch(err => {
+  console.log(err)
+  return
 });
 
-listarDispositivos()
+const iniciar = () => {
+
+  const escpos = require('escpos');
+  const {
+    exception
+  } = require("console");
+  escpos.USB = require('escpos-usb');
+  const dispositivos = config.dispositivos
+  const conectarDispositivos = require("./dispositivos").conectarDispositivos;
+  const desconectarDispositivos = require("./dispositivos").desconectarDispositivos;
+  const listarDispositivos = require("./dispositivos").listarDispositivos
+  const impresoraConfig = require("./dispositivos").getDispositivosUsb(dispositivos, "impresora")
+  const server = require("./httpServer.js").server;
+  const WebSocketServer = require("websocket").server;
+  const crearSocket = require("./socket.js").crearSocket;
+  const abrirImpresora = require("./dispositivosUSB").abrirImpresora;
+  const testOnline = require("./dispositivosUSB").testOnline;
+  const imprimirBono = require("./dispositivosUSB").imprimirBono
+
+  let dispositivosConectados = null;
+  let socket = null;
+  let connection = null
+
+  const wsServer = new WebSocketServer({
+    httpServer: server,
+  });
+
+  listarDispositivos()
 
 
 
-wsServer.on("request", function (request) {
-  connection = request.accept(null, request.origin);
-  if (impresoraConfig) abrirImpresora(connection, impresoraConfig.VID, impresoraConfig.PID)
-  if (dispositivosConectados) {
-    desconectarDispositivos(dispositivosConectados);
-  }
-  setTimeout(() => {
-    dispositivosConectados = conectarDispositivos(connection, dispositivos);
-  }, 1000);
-
-  connection.on("message", async function (message) {
-    let mensaje = JSON.parse(message.utf8Data);
-    console.log(mensaje);
-
-    switch (mensaje.periferico) {
-      case "impresora":
-        if (mensaje.comando == "status") {
-          testOnline(connection)
-        }
-        if (mensaje.comando == "print") {
-          imprimirBono(mensaje)
-        }
-        break;
-
-      case "servidorBugs":
-        if (mensaje.comando == "connect" && !socket) {
-          socket = crearSocket(connection);
-        }
-        if (mensaje.comando == "send" && socket) {
-          socket.write(mensaje.subComando);
-        }
-        break;
-      case "tarjetaChip":
-        if (mensaje.comando == "write") {
-          dispositivosConectados[mensaje.periferico].write(mensaje.subComando + String.fromCharCode(10));
-        }
-        if (mensaje.comando == "set") {
-          dispositivosConectados[mensaje.periferico].set({
-              rts: mensaje.subComando == "on",
-              dtr: mensaje.subComando == "on",
-            },
-            (error) => {
-              connection.sendUTF(
-                JSON.stringify({
-                  periferico: "tarjetaChip",
-                  comando: "info",
-                  data: (!error).toString() +
-                    String.fromCharCode(parseInt("10", 16)),
-                })
-              );
-            }
-          );
-        }
-        if (mensaje.comando == "get") {
-          dispositivosConectados[mensaje.periferico].get((error, data) => {
-            if (error) console.log(error);
-            if (data)
-              connection.sendUTF(
-                JSON.stringify({
-                  periferico: "tarjetaChip",
-                  comando: "info",
-                  data: (!data).toString(),
-                })
-              );
-          });
-        }
-        break;
-      case "posNet":
-        if (mensaje.comando == "write") {
-
-          /*  let hexmess = ["02", "56", "45", "4E", "68", "00", "30", "30", "30", "30", "30", "30", "30", "30", "30", "31", "30", "30", "31", "30", "30", "30", "30", "30", "30", "38", "39", "30", "31", "32", "30", "31", "30", "56", "49", "30", "30", "30", "30", "30", "30", "30", "30", "30", "30", "30", "30", "30", "30", "33", "36", "35", "39", "33", "30", "37", "20", "20", "20", "20", "20", "20", "20", "50", "52", "49", "53", "4D", "41", "20", "4D", "50", "20", "20", "20", "20", "20", "20", "20", "20", "20", "20", "20", "20", "20", "20", "33", "30", "2D", "35", "39", "38", "39", "31", "30", "30", "34", "2D", "35", "20", "20", "20", "20", "20", "20", "20", "20", "20", "20", "01", "03", "11"]
-           let textmess = ""
-           hexmess.forEach(i => {
-             textmess += String.fromCharCode(parseInt(i, 16))
-
-           })
-
-
-           console.log("ms:" + decodeURIComponent(mensaje.subComando))
-           console.log("ok:" + textmess) */
-          let hexmess = ["02", "43", "49", "45", "00", "00", "03", "4C"]
-          let textmess = ""
-          hexmess.forEach(i => {
-            textmess += String.fromCharCode(parseInt(i, 16))
-
-          })
-          console.log("ms:" + decodeURIComponent(mensaje.subComando))
-          console.log("ok:" + textmess)
-
-          dispositivosConectados[mensaje.periferico].write(decodeURIComponent(mensaje.subComando));
-        }
-        break;
-      case "aplicacion":
-        if (mensaje.comando == "info") {
-          console.log(mensaje.data);
-        }
-
-        break;
+  wsServer.on("request", function (request) {
+    connection = request.accept(null, request.origin);
+    if (impresoraConfig) abrirImpresora(connection, impresoraConfig.VID, impresoraConfig.PID)
+    if (dispositivosConectados) {
+      desconectarDispositivos(dispositivosConectados);
     }
+    setTimeout(() => {
+      dispositivosConectados = conectarDispositivos(connection, dispositivos);
+    }, 1000);
+
+    connection.on("message", async function (message) {
+      let mensaje = JSON.parse(message.utf8Data);
+      console.log(mensaje);
+
+      switch (mensaje.periferico) {
+        case "impresora":
+          if (mensaje.comando == "status") {
+            testOnline(connection)
+          }
+          if (mensaje.comando == "print") {
+            imprimirBono(mensaje)
+          }
+          break;
+
+        case "servidorBugs":
+          if (mensaje.comando == "connect" && !socket) {
+            socket = crearSocket(connection);
+          }
+          if (mensaje.comando == "send" && socket) {
+            socket.write(mensaje.subComando);
+          }
+          break;
+        case "tarjetaChip":
+          if (mensaje.comando == "write") {
+            dispositivosConectados[mensaje.periferico].write(mensaje.subComando + String.fromCharCode(10));
+          }
+          if (mensaje.comando == "set") {
+            dispositivosConectados[mensaje.periferico].set({
+                rts: mensaje.subComando == "on",
+                dtr: mensaje.subComando == "on",
+              },
+              (error) => {
+                connection.sendUTF(
+                  JSON.stringify({
+                    periferico: "tarjetaChip",
+                    comando: "info",
+                    data: (!error).toString() +
+                      String.fromCharCode(parseInt("10", 16)),
+                  })
+                );
+              }
+            );
+          }
+          if (mensaje.comando == "get") {
+            dispositivosConectados[mensaje.periferico].get((error, data) => {
+              if (error) console.log(error);
+              if (data)
+                connection.sendUTF(
+                  JSON.stringify({
+                    periferico: "tarjetaChip",
+                    comando: "info",
+                    data: (!data).toString(),
+                  })
+                );
+            });
+          }
+          break;
+        case "posNet":
+          if (mensaje.comando == "write") {
+
+            /*  let hexmess = ["02", "56", "45", "4E", "68", "00", "30", "30", "30", "30", "30", "30", "30", "30", "30", "31", "30", "30", "31", "30", "30", "30", "30", "30", "30", "38", "39", "30", "31", "32", "30", "31", "30", "56", "49", "30", "30", "30", "30", "30", "30", "30", "30", "30", "30", "30", "30", "30", "30", "33", "36", "35", "39", "33", "30", "37", "20", "20", "20", "20", "20", "20", "20", "50", "52", "49", "53", "4D", "41", "20", "4D", "50", "20", "20", "20", "20", "20", "20", "20", "20", "20", "20", "20", "20", "20", "20", "33", "30", "2D", "35", "39", "38", "39", "31", "30", "30", "34", "2D", "35", "20", "20", "20", "20", "20", "20", "20", "20", "20", "20", "01", "03", "11"]
+             let textmess = ""
+             hexmess.forEach(i => {
+               textmess += String.fromCharCode(parseInt(i, 16))
+
+             })
+
+
+             console.log("ms:" + decodeURIComponent(mensaje.subComando))
+             console.log("ok:" + textmess) */
+            let hexmess = ["02", "43", "49", "45", "00", "00", "03", "4C"]
+            let textmess = ""
+            hexmess.forEach(i => {
+              textmess += String.fromCharCode(parseInt(i, 16))
+
+            })
+            console.log("ms:" + decodeURIComponent(mensaje.subComando))
+            console.log("ok:" + textmess)
+
+            dispositivosConectados[mensaje.periferico].write(decodeURIComponent(mensaje.subComando));
+          }
+          break;
+        case "aplicacion":
+          if (mensaje.comando == "info") {
+            console.log(mensaje.data);
+          }
+
+          break;
+      }
+    });
+    connection.on("close", function (reasonCode, description) {
+      console.log("Client has disconnected.");
+    });
   });
-  connection.on("close", function (reasonCode, description) {
-    console.log("Client has disconnected.");
-  });
-});
+}
 
-const getJsonFile = (path) => {
-  let output = {};
-  try {
-    let json = fs.readFileSync(path);
-    output = JSON.parse(json);
-  } catch (e) {
-    output = {};
-
-    // console.log(e.message, e.stack);
-  }
-  return output;
-};
-
-module.exports = exports = getJsonFile;
 
 
 
