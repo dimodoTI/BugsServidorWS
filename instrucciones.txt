@@ -1,0 +1,14 @@
+Para generar la licencia:
+    ejecutar node server.js
+    copiar el hash que sale en consola
+    abrir archivo config.json
+    pegar el hash en el valor de la etiqueta "machineId"
+    guardar
+    correr node createLicense.
+    se tiene que haber creado el arvhivo bus.License
+
+
+Para generar el ejecutable:
+    pkg server.js --targets node12-win-x64  (para version 12 de node y 64 de windows)
+
+Poner el ejecutable y la licencia en la misma carpeta

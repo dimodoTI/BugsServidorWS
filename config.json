@@ -1,10 +1,5 @@
 {
-    "macaddress": {
-        "titulo": "vEthernet (Default Switch)",
-        "subtitulo": "mac",
-        "value": "00:15:5d:09:3c:dd"
-
-    },
+    "machineId": "141916e30a921c0b2a3dfc50c29c3ebe7930bb3c52d0085f02a9f86966fd560d",
     "dispositivos": [{
         "nombre": "tarjetaChip",
         "config": {

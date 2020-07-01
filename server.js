@@ -7,6 +7,9 @@ const {
 let licencia = null;
 let config = null
 
+const nodeMachineId = require('node-machine-id');
+console.log(nodeMachineId.machineIdSync());
+
 try {
   licencia = helpers.decrypt(helpers.getFile("./bugs.license"))
   config = JSON.parse(licencia)
@@ -14,18 +17,10 @@ try {
   console.log("Licencia corrupta!!!")
   return
 }
-
-macaddress.all().then((all) => {
-  console.log(JSON.stringify(all, null, 2));
-  if (!all[config.macaddress.titulo]) throw "licencia caduca (name)"
-  if (all[config.macaddress.titulo][config.macaddress.subtitulo] != config.macaddress.value) {
-    throw "licencia caduca (value)"
-  }
-  iniciar()
-}).catch(err => {
-  console.log(err)
+if (config.machineId != nodeMachineId.machineIdSync()) {
+  console.log("Licencia caduca, comuniquese con BUGS!!!")
   return
-});
+}
 
 const iniciar = () => {
 
@@ -179,7 +174,7 @@ const iniciar = () => {
   });
 }
 
-
+iniciar()
 
 
 /* 
