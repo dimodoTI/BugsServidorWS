@@ -1,13 +1,15 @@
 {
     "macaddress": {
-        "propertyName": "vEthernet (Default Switch)",
-        "value": "00:15:5d:87:61:de"
+        "titulo": "vEthernet (Default Switch)",
+        "subtitulo": "mac",
+        "value": "00:15:5d:09:3c:dd"
+
     },
     "dispositivos": [{
         "nombre": "tarjetaChip",
         "config": {
             "id": 1,
-            "com": 5,
+            "com": 3,
             "velocidad": 19200,
             "datos": 8,
             "paridad": "none",
@@ -25,7 +27,7 @@
             "paridad": "none",
             "parada": 1,
             "rtscts": false,
-            "conectado": true
+            "conectado": false
         }
     }, {
         "nombre": "impresora",

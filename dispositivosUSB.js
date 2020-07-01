@@ -11,9 +11,12 @@ const PING_ONLINE_CADA = 5000
 
 exports.abrirImpresora = (connection, VID, PID) => {
     //device = new escpos.USB("1208", "3605");
+
     try {
         device = new escpos.USB(VID, PID);
+        console.log("impresora conectada")
     } catch {
+        console.log("error en conectada")
         connection.sendUTF(
             JSON.stringify({
                 periferico: "impresora",

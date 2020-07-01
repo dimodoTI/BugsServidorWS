@@ -1,5 +1,9 @@
 const helpers = require("./helpers.js")
 const macaddress = require('macaddress');
+const {
+  getJsonFile,
+  saveLog
+} = require("./helpers.js");
 let licencia = null;
 let config = null
 
@@ -13,8 +17,8 @@ try {
 
 macaddress.all().then((all) => {
   console.log(JSON.stringify(all, null, 2));
-  if (!all[config.macaddress.propertyName]) throw "licencia caduca (name)"
-  if (all[config.macaddress.propertyName].mac != config.macaddress.value) {
+  if (!all[config.macaddress.titulo]) throw "licencia caduca (name)"
+  if (all[config.macaddress.titulo][config.macaddress.subtitulo] != config.macaddress.value) {
     throw "licencia caduca (value)"
   }
   iniciar()
@@ -56,7 +60,7 @@ const iniciar = () => {
 
   wsServer.on("request", function (request) {
     connection = request.accept(null, request.origin);
-    if (impresoraConfig) abrirImpresora(connection, impresoraConfig.VID, impresoraConfig.PID)
+    if (impresoraConfig) abrirImpresora(connection, impresoraConfig.impresora.VID, impresoraConfig.impresora.PID)
     if (dispositivosConectados) {
       desconectarDispositivos(dispositivosConectados);
     }
@@ -150,6 +154,21 @@ const iniciar = () => {
           if (mensaje.comando == "info") {
             console.log(mensaje.data);
           }
+          if (mensaje.comando == "getJsonFile") {
+            const resultado = getJsonFile(mensaje.subComando)
+            connection.sendUTF(
+              JSON.stringify({
+                periferico: "aplicacion",
+                comando: mensaje.comando,
+                subComando: mensaje.subComando,
+                data: resultado,
+              })
+            );
+          }
+          if (mensaje.comando == "saveLog") {
+            saveLog(mensaje.subComando.path, mensaje.subComando.data, mensaje.subComando.separador)
+          }
+
 
           break;
       }

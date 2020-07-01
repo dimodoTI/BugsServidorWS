@@ -96,9 +96,9 @@ exports.imprimirBono = (printer, mensaje) => {
 
         printer.control("lf")
         printer.align("ct")
-        printer.size(2, 2)
-        printer.text(mensaje.subComando.descripcion, 'ISO-8859-2');
         printer.size(1, 1)
+        printer.text(mensaje.subComando.descripcion, 'ISO-8859-2');
+        printer.size(0, 0)
         printer.control("lf")
         printer.control("lf")
         printer.align("ct")

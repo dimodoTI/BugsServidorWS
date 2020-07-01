@@ -47,11 +47,18 @@ const decrypt = (text) => {
     decrypted = Buffer.concat([decrypted, decipher.final()]);
     return decrypted.toString();
 }
+const saveLog = (path, data, separador) => {
+    fs.appendFile(path, data + separador, (err) => {
+        if (err) throw err;
+    });
+}
+
 const helpers = {
     getFile: getFile,
     getJsonFile: getJsonFile,
     encrypt: encrypt,
-    decrypt: decrypt
+    decrypt: decrypt,
+    saveLog: saveLog
 }
 
 module.exports = exports = helpers;
