@@ -1,5 +1,7 @@
 const helpers = require("./helpers.js")
 const macaddress = require('macaddress');
+const activeMailSender = require('./mailSender')
+
 const {
   getJsonFile,
   saveLog
@@ -21,6 +23,8 @@ if (config.machineId != nodeMachineId.machineIdSync()) {
   console.log("Licencia caduca, comuniquese con BUGS!!!")
   return
 }
+
+activeMailSender(config.mailService)
 
 const iniciar = () => {
 
@@ -55,7 +59,7 @@ const iniciar = () => {
 
   wsServer.on("request", function (request) {
     connection = request.accept(null, request.origin);
-    if (impresoraConfig) abrirImpresora(connection, impresoraConfig.impresora.VID, impresoraConfig.impresora.PID)
+    if (impresoraConfig.impresora) abrirImpresora(connection, impresoraConfig.impresora.VID, impresoraConfig.impresora.PID)
     if (dispositivosConectados) {
       desconectarDispositivos(dispositivosConectados);
     }
@@ -130,19 +134,48 @@ const iniciar = () => {
 
              })
 
-
              console.log("ms:" + decodeURIComponent(mensaje.subComando))
              console.log("ok:" + textmess) */
-            let hexmess = ["02", "43", "49", "45", "00", "00", "03", "4C"]
+            //let hexmess = ["02", "43", "49", "45", "00", "00", "03", "4C"]
+
+            /* let hexmess = ["02", "56", "45", "4e", "68", "00", "30", "30", "30", "30", "30", "30", "30", "30", "30", "31",
+              "30", "30", "31", "30", "30", "30", "30", "30", "30", "38", "39", "30", "31", "32", "30", "31",
+              "30", "56", "49", "30", "30", "30", "30", "30", "30", "30", "30", "30", "30", "30", "30", "30",
+              "30", "33", "36", "35", "39", "33", "30", "37", "20", "20", "20", "20", "20", "20", "20", "50",
+              "52", "49", "53", "4d", "41", "20", "4d", "50", "20", "20", "20", "20", "20", "20", "20", "20",
+              "20", "20", "20", "20", "20", "20", "33", "30", "2d", "35", "39", "38", "39", "31", "30", "30",
+              "34", "2d", "35", "20", "20", "20", "20", "20", "20", "20", "20", "20", "20", "01", "03", "11"
+            ]
+
             let textmess = ""
             hexmess.forEach(i => {
               textmess += String.fromCharCode(parseInt(i, 16))
-
             })
-            console.log("ms:" + decodeURIComponent(mensaje.subComando))
-            console.log("ok:" + textmess)
 
-            dispositivosConectados[mensaje.periferico].write(decodeURIComponent(mensaje.subComando));
+
+            let posnetMessage = decodeURIComponent(mensaje.subComando)
+
+            console.log("Llega:" + posnetMessage)
+            console.log("Debe :" + textmess)
+
+            let arrHex = []
+            posnetMessage.split("").forEach(x => {
+              arrHex.push(("0" + x.charCodeAt(0).toString(16)).substr(-2))
+            })
+
+            let indice = 0
+            arrHex.forEach(e => {
+              if (e != hexmess[indice]) console.log("Distinto!!")
+              console.log(e, hexmess[indice])
+              indice++
+            }) */
+
+            //console.log("ms:" + decodeURIComponent(mensaje.subComando))
+            //console.log("ok:" + textmess)
+
+
+            dispositivosConectados[mensaje.periferico].write(posnetMessage);
+
           }
           break;
         case "aplicacion":
