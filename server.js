@@ -104,7 +104,7 @@ const iniciar = () => {
                     periferico: "tarjetaChip",
                     comando: "info",
                     data: (!error).toString() +
-                      String.fromCharCode(parseInt("10", 16)),
+                      String.fromCharCode(parseInt("0A", 16)),
                   })
                 );
               }
@@ -173,7 +173,7 @@ const iniciar = () => {
             //console.log("ms:" + decodeURIComponent(mensaje.subComando))
             //console.log("ok:" + textmess)
 
-
+            let posnetMessage = decodeURIComponent(mensaje.subComando)
             dispositivosConectados[mensaje.periferico].write(posnetMessage);
 
           }
